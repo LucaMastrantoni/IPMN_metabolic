@@ -46,11 +46,6 @@ Cohorts are non-overlapping.
 | `Ca19` | CA19-9 clinical call at the routine threshold: `pos`, `neg`, or `miss` (not recorded; treated as missing) |
 | `GLUL`, `ALDH2`, `ECHS1`, `SCP2` | Plasma protein levels |
 
-| Cohort | LG-IPMN | HG-IPMN | PDAC | CA19-9 recorded |
-|---|---|---|---|---|
-| Discovery | 24 | 14 | 18 | 48 |
-| Validation | 46 | 9 | 12 | 60 |
-
 ## Reproducing the analysis
 
 Requires R (≥ 4.4) with:
