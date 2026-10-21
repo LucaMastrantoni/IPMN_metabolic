@@ -44,7 +44,7 @@ Cohorts are non-overlapping.
 | `Pt` | Anonymized patient code |
 | `Type` | `Low-Grade IPMN`, `High-Grade IPMN` or `PDAC` |
 | `Ca19` | CA19-9 clinical call at the routine threshold: `pos`, `neg`, or `miss` (not recorded; treated as missing) |
-| `GLUL`, `ALDH2`, `ECHS1`, `SCP2` | Plasma protein levels |
+| `GLUL`, `ALDH2`, `ECHS1`, `SCP2` | Plasma protein levels (SomaScan RFU) |
 
 ## Reproducing the analysis
 
