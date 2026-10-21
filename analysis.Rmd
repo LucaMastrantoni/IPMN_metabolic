@@ -1,0 +1,415 @@
+---
+title: "Circulating GLUL, ALDH2, ECHS1 and SCP2 in IPMN — discovery-locked cut-offs and external validation"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+This notebook reproduces the plasma-protein analyses of the manuscript
+(main Figure 5, Supplementary Figure 5, Supplementary Table 6).
+
+**Design.** GLUL, ALDH2, ECHS1 and SCP2 were pre-specified upstream of this
+analysis (differential abundance, spatial transcriptomics and tissue validation;
+see manuscript). Because that selection used the discovery cohort, the
+discovery cohort is used here **only** to derive one classification cut-off per
+protein (Youden's index), which is then locked. **All performance estimates are
+computed in the independent validation cohort.** No multivariable model is
+fitted.
+
+**Contrasts.**
+
+* Primary: HG-IPMN + PDAC vs LG-IPMN (`malignant_PDAC`)
+* Secondary (exploratory, 9 events in validation): HG-IPMN vs LG-IPMN, PDAC excluded (`malignant_IPMN`)
+
+**CA19-9** is available only as a binary clinical call (positive/negative at
+each centre's routine threshold), so it is never compared against a protein ROC
+curve; it is compared as a binary call against each protein's locked binary
+call, and combined with GLUL in an exploratory "either-positive" rule.
+
+Run from the repository root (knitting this file does that automatically).
+All outputs are written to `output/`.
+
+```{r setup, message = FALSE, warning = FALSE}
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(patchwork)
+library(pROC)
+library(cutpointr)
+library(cvms)
+library(writexl)
+
+PATH    <- "Data/Cohorts.xlsx"
+MARKERS <- c("GLUL", "ALDH2", "ECHS1", "SCP2")
+BOOT_N  <- 2000
+SEED    <- 42
+
+dir.create("output", showWarnings = FALSE)
+```
+
+# Data
+
+```{r load}
+load_cohort <- function(path, cohort) {
+  as.data.frame(read_xlsx(path, sheet = cohort)) %>%
+    mutate(
+      # Primary contrast: HG-IPMN or PDAC = 1, LG-IPMN = 0
+      malignant_PDAC = as.integer(Type %in% c("High-Grade IPMN", "PDAC")),
+      # Secondary contrast: HG-IPMN = 1, LG-IPMN = 0, PDAC excluded (NA)
+      malignant_IPMN = case_when(
+        Type == "High-Grade IPMN" ~ 1L,
+        Type == "Low-Grade IPMN"  ~ 0L,
+        TRUE                      ~ NA_integer_
+      ),
+      # CA19-9 binary call; "miss" = not recorded (NA, never treated as negative)
+      ca19_pos = case_when(
+        trimws(Ca19) == "pos" ~ 1L,
+        trimws(Ca19) == "neg" ~ 0L,
+        TRUE                  ~ NA_integer_
+      )
+    )
+}
+
+df_disc <- load_cohort(PATH, "Discovery")
+df_val  <- load_cohort(PATH, "Validation")
+
+table(Discovery  = df_disc$Type)
+table(Validation = df_val$Type)
+```
+
+# 1. Discrimination in the validation cohort (AUROC)
+
+AUROC with 95% CI from 2,000 stratified bootstrap replicates.
+
+```{r roc-functions}
+roc_ci_plot <- function(data, marker, outcome,
+                        fill = "cadetblue", boot_n = BOOT_N, seed = SEED) {
+  set.seed(seed)
+  r <- pROC::roc(data[[outcome]], data[[marker]], percent = TRUE, quiet = TRUE,
+           direction = "<", levels = c(0, 1))
+  ci_se <- pROC::ci.se(r, specificities = seq(0, 100, 1), boot.n = boot_n,
+                 method = "bootstrap", progress = "none")
+  band  <- data.frame(specificity = seq(0, 100, 1), lo = ci_se[, 1], hi = ci_se[, 3])
+
+  curve <- data.frame(specificity = r$specificities, sensitivity = r$sensitivities)
+  curve <- curve[order(curve$specificity, curve$sensitivity), ]
+
+  set.seed(seed)
+  auc_ci  <- pROC::ci.auc(r, method = "bootstrap", boot.n = boot_n, stratified = TRUE,
+                    progress = "none")
+  auc_lab <- sprintf("AUC = %.1f%% (%.1f-%.1f)", as.numeric(pROC::auc(r)), auc_ci[1], auc_ci[3])
+
+  ggplot() +
+    geom_ribbon(data = band, aes(specificity, ymin = lo, ymax = hi),
+                fill = fill, color = "black", alpha = 0.8) +
+    geom_step(data = curve, aes(specificity, sensitivity), direction = "vh", linewidth = 0.9) +
+    geom_segment(aes(x = 100, y = 0, xend = 0, yend = 100), linetype = "dashed", colour = "grey60") +
+    annotate("text", x = 50, y = 5, label = auc_lab, hjust = 0.5) +
+    scale_x_reverse(limits = c(100, 0), expand = c(0, 0)) +
+    scale_y_continuous(limits = c(0, 100), expand = c(0, 0)) +
+    coord_equal() +
+    labs(title = marker, x = "Specificity (%)", y = "Sensitivity (%)") +
+    theme_classic(base_size = 10) +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5))
+}
+
+auroc_table <- function(data, outcome, boot_n = BOOT_N, seed = SEED) {
+  do.call(rbind, lapply(MARKERS, function(m) {
+    r <- pROC::roc(data[[outcome]], data[[m]], quiet = TRUE, direction = "<", levels = c(0, 1))
+    set.seed(seed)
+    cb <- as.numeric(pROC::ci.auc(r, method = "bootstrap", boot.n = boot_n, stratified = TRUE,
+                            progress = "none"))
+    data.frame(marker = m,
+               AUC = round(as.numeric(pROC::auc(r)), 3),
+               lo  = round(cb[1], 3),
+               hi  = round(cb[3], 3))
+  }))
+}
+```
+
+## Primary contrast — Figure 5A
+
+```{r roc-primary, fig.width = 12, fig.height = 3}
+plots_PDAC <- lapply(MARKERS, function(m) roc_ci_plot(df_val, m, outcome = "malignant_PDAC"))
+wrap_plots(plots_PDAC, ncol = 4)
+
+svg("output/validation_Malignant_PDAC.svg", width = 12, height = 3)
+print(wrap_plots(plots_PDAC, ncol = 4))
+invisible(dev.off())
+
+auc_df_PDAC <- auroc_table(df_val, "malignant_PDAC")
+auc_df_PDAC
+write_xlsx(auc_df_PDAC, "output/AUC_PDAC.xlsx")
+```
+
+## Secondary contrast — Supplementary Figure 5A
+
+```{r roc-secondary, fig.width = 12, fig.height = 3}
+plots_IPMN <- lapply(MARKERS, function(m)
+  roc_ci_plot(df_val, m, outcome = "malignant_IPMN", fill = "lightblue"))
+wrap_plots(plots_IPMN, ncol = 4)
+
+svg("output/validation_Malignant_IPMN.svg", width = 12, height = 3)
+print(wrap_plots(plots_IPMN, ncol = 4))
+invisible(dev.off())
+
+auc_df_IPMN <- auroc_table(df_val, "malignant_IPMN")
+auc_df_IPMN
+write_xlsx(auc_df_IPMN, "output/AUC_IPMN.xlsx")
+```
+
+# 2. Discovery-derived cut-offs — Supplementary Table 6
+
+One cut-off per protein and contrast, maximising Youden's index in the
+discovery cohort (rule: marker >= cut-off -> positive). Where a protein
+separates the discovery classes completely (GLUL), every value inside the gap
+maximises Youden's index; the midpoint of the gap is used.
+
+```{r cutoffs}
+find_cutoffs <- function(data, marker, outcome) {
+  x <- data[[marker]]; y <- data[[outcome]]
+  keep <- !is.na(x) & !is.na(y)
+  x <- x[keep]; y <- y[keep]
+
+  cp_y <- cutpointr(x = x, class = y,
+                    method = maximize_metric, metric = youden,
+                    direction = ">=", pos_class = 1, neg_class = 0,
+                    na.rm = TRUE, silent = TRUE)
+
+  complete_sep <- isTRUE(cp_y$acc == 1)
+  cutoff <- if (complete_sep) {
+    # midpoint between the highest negative and the lowest positive value
+    (max(x[y == 0]) + min(x[y == 1])) / 2
+  } else {
+    cp_y$optimal_cutpoint
+  }
+
+  data.frame(marker      = marker,
+             youden_cut  = cutoff,
+             youden_sens = round(cp_y$sensitivity, 3),
+             youden_spec = round(cp_y$specificity, 3),
+             complete_separation = complete_sep)
+}
+
+cutoffs_PDAC <- do.call(rbind, lapply(MARKERS, find_cutoffs, data = df_disc, outcome = "malignant_PDAC"))
+cutoffs_IPMN <- do.call(rbind, lapply(MARKERS, find_cutoffs, data = df_disc, outcome = "malignant_IPMN"))
+cutoffs_PDAC
+cutoffs_IPMN
+
+write_xlsx(cutoffs_PDAC, "output/cutoffs_PDAC.xlsx")
+write_xlsx(cutoffs_IPMN, "output/cutoffs_IPMN.xlsx")
+```
+
+# 3. Locked cut-offs applied to the validation cohort
+
+Sensitivity, specificity, PPV, NPV and accuracy with exact (Clopper–Pearson)
+95% CIs; balanced accuracy with a 2,000-replicate bootstrap CI.
+
+```{r metric-functions}
+ci_binom <- function(x, n) {
+  b <- binom.test(x, n)
+  c(est = x / n, lo = b$conf.int[1], hi = b$conf.int[2])
+}
+
+bal_acc <- function(truth, pred) {
+  mean(c(sum(pred == 1 & truth == 1) / sum(truth == 1),
+         sum(pred == 0 & truth == 0) / sum(truth == 0)))
+}
+
+# Full metric set for one binary prediction against the truth
+metrics_from_pred <- function(truth, pred, label, boot_n = BOOT_N, seed = SEED) {
+  tp <- sum(pred == 1 & truth == 1); fn <- sum(pred == 0 & truth == 1)
+  tn <- sum(pred == 0 & truth == 0); fp <- sum(pred == 1 & truth == 0)
+  n  <- tp + fn + tn + fp
+
+  set.seed(seed)
+  bs <- replicate(boot_n, { i <- sample(n, replace = TRUE); bal_acc(truth[i], pred[i]) })
+  ba <- c(est = bal_acc(truth, pred),
+          lo  = unname(quantile(bs, 0.025, na.rm = TRUE)),
+          hi  = unname(quantile(bs, 0.975, na.rm = TRUE)))
+
+  m <- rbind(Accuracy    = ci_binom(tp + tn, n),
+             Sensitivity = ci_binom(tp, tp + fn),
+             Specificity = ci_binom(tn, tn + fp),
+             PPV         = ci_binom(tp, tp + fp),
+             NPV         = ci_binom(tn, tn + fn),
+             `Balanced accuracy` = ba)
+  data.frame(predictor = label, metric = rownames(m), m,
+             TP = tp, FN = fn, TN = tn, FP = fp, row.names = NULL)
+}
+
+marker_metrics <- function(marker, data, cutoffs, outcome) {
+  cut  <- cutoffs$youden_cut[cutoffs$marker == marker]
+  data <- data[!is.na(data[[outcome]]), ]          # secondary contrast: drops PDAC
+  metrics_from_pred(data[[outcome]], as.integer(data[[marker]] >= cut), marker)
+}
+
+METRIC_ORDER <- c("Sensitivity", "Specificity", "PPV", "NPV", "Accuracy", "Balanced accuracy")
+
+plot_metrics <- function(df, fill) {
+  df$metric    <- factor(df$metric, levels = rev(METRIC_ORDER))
+  df$predictor <- factor(df$predictor, levels = unique(df$predictor))
+  ggplot(df, aes(est, metric)) +
+    geom_pointrange(aes(xmin = lo, xmax = hi), shape = 21, fill = fill,
+                    color = "black", linewidth = 0.7) +
+    geom_text(aes(label = sprintf("%.2f (%.2f-%.2f)", est, lo, hi)), vjust = -0.8, size = 2.6) +
+    coord_cartesian(clip = "off") +
+    scale_x_continuous(limits = c(0, 1.25), breaks = seq(0, 1, 0.25), labels = scales::percent) +
+    facet_wrap(~ predictor, ncol = 4) +
+    labs(x = "Estimate (95% CI)", y = NULL) +
+    theme_classic(base_size = 11) +
+    theme(strip.background = element_blank(), strip.text = element_text(face = "bold"),
+          axis.line.x = element_blank(), axis.line.y = element_blank(),
+          axis.ticks.y = element_blank())
+}
+
+plot_cm <- function(truth, pred, lab, fill, ylab) {
+  t <- factor(truth, levels = c(0, 1), labels = lab)   # fixed levels keep a 2x2
+  p <- factor(pred,  levels = c(0, 1), labels = lab)   # even if one class is never predicted
+  plot_confusion_matrix(confusion_matrix(targets = t, predictions = p),
+                        add_normalized = TRUE,
+                        add_col_percentages = FALSE, add_row_percentages = FALSE,
+                        tile_border_color = "black", add_arrows = FALSE,
+                        add_zero_shading = FALSE,
+                        palette = list(low = "#EAEAEA", high = fill)) +
+    labs(x = "Actual", y = ylab)
+}
+
+plot_cm_marker <- function(marker, cutoffs, data, outcome, lab, fill) {
+  cut  <- cutoffs$youden_cut[cutoffs$marker == marker]
+  data <- data[!is.na(data[[outcome]]), ]
+  plot_cm(data[[outcome]], as.integer(data[[marker]] >= cut), lab, fill,
+          paste0(marker, " - Cut-off"))
+}
+```
+
+## Primary contrast — Figure 5B–C
+
+```{r metrics-primary, fig.width = 10, fig.height = 2.5}
+LAB_PDAC <- c("LG-IPMN", "HG-IPMN/PDAC")
+
+met_PDAC <- do.call(rbind, lapply(MARKERS, marker_metrics, data = df_val,
+                                  cutoffs = cutoffs_PDAC, outcome = "malignant_PDAC"))
+met_PDAC
+write_xlsx(met_PDAC, "output/metrics_PDAC.xlsx")
+
+p <- plot_metrics(met_PDAC, "cadetblue"); p
+svg("output/metrics_PDAC.svg", width = 7.5, height = 2.5); print(p); invisible(dev.off())
+
+cm_plots <- lapply(MARKERS, plot_cm_marker, cutoffs = cutoffs_PDAC, data = df_val,
+                   outcome = "malignant_PDAC", lab = LAB_PDAC, fill = "cadetblue")
+png("output/cm_Malignant_PDAC.png", width = 10, height = 2.5, res = 300, units = "in")
+print(wrap_plots(cm_plots, ncol = 4)); invisible(dev.off())
+png("output/cm_Malignant_PDACv.png", width = 5, height = 5, res = 300, units = "in")
+print(wrap_plots(cm_plots, ncol = 2)); invisible(dev.off())
+wrap_plots(cm_plots, ncol = 4)
+```
+
+Sensitivity of GLUL within the malignant class, by histology (shows how much
+of the primary endpoint is carried by PDAC):
+
+```{r glul-by-histology}
+glul_cut_PDAC <- cutoffs_PDAC$youden_cut[cutoffs_PDAC$marker == "GLUL"]
+df_val %>%
+  filter(malignant_PDAC == 1) %>%
+  group_by(Type) %>%
+  summarise(n = n(), detected = sum(GLUL >= glul_cut_PDAC),
+            sensitivity = detected / n,
+            lo = binom.test(detected, n)$conf.int[1],
+            hi = binom.test(detected, n)$conf.int[2])
+```
+
+## Secondary contrast — Supplementary Figure 5B–C
+
+```{r metrics-secondary, fig.width = 10, fig.height = 2.5}
+LAB_IPMN <- c("LG-IPMN", "HG-IPMN")
+
+met_IPMN <- do.call(rbind, lapply(MARKERS, marker_metrics, data = df_val,
+                                  cutoffs = cutoffs_IPMN, outcome = "malignant_IPMN"))
+met_IPMN
+write_xlsx(met_IPMN, "output/metrics_IPMN.xlsx")
+
+p <- plot_metrics(met_IPMN, "lightblue"); p
+svg("output/metrics_IPMN.svg", width = 7.5, height = 2.5); print(p); invisible(dev.off())
+
+cm_plots <- lapply(MARKERS, plot_cm_marker, cutoffs = cutoffs_IPMN, data = df_val,
+                   outcome = "malignant_IPMN", lab = LAB_IPMN, fill = "lightblue")
+png("output/cm_Malignant_IPMN.png", width = 10, height = 2.5, res = 300, units = "in")
+print(wrap_plots(cm_plots, ncol = 4)); invisible(dev.off())
+png("output/cm_Malignant_IPMNv.png", width = 5, height = 5, res = 300, units = "in")
+print(wrap_plots(cm_plots, ncol = 2)); invisible(dev.off())
+wrap_plots(cm_plots, ncol = 4)
+```
+
+# 4. CA19-9 — binary comparison and complementarity
+
+Restricted to validation patients with CA19-9 recorded (complete cases).
+GLUL is evaluated at its locked discovery cut-off; the "either-positive" rule
+calls a patient positive if GLUL or CA19-9 is positive. This is a
+complementarity analysis at fixed operating points, not a comparison of
+discrimination.
+
+```{r ca19-cc}
+df_val_cc <- subset(df_val, !is.na(ca19_pos))
+table(df_val_cc$Type)
+
+ca19_rule <- function(data, cutoffs, outcome, marker = "GLUL") {
+  cut   <- cutoffs$youden_cut[cutoffs$marker == marker]
+  cc    <- !is.na(data$ca19_pos) & !is.na(data[[outcome]])
+  truth <- data[[outcome]][cc]
+  mk    <- as.integer(data[[marker]][cc] >= cut)
+  ca19  <- data$ca19_pos[cc]
+  either <- as.integer(mk == 1 | ca19 == 1)
+
+  neg_mal <- ca19 == 0 & truth == 1
+  cat(sprintf("Complete cases: %d | %s-positive among CA19-9-negative malignant: %d of %d\n",
+              sum(cc), marker, sum(mk[neg_mal] == 1), sum(neg_mal)))
+
+  list(truth = truth, ca19 = ca19, marker = mk, either = either,
+       metrics = rbind(metrics_from_pred(truth, ca19,   "CA19-9"),
+                       metrics_from_pred(truth, mk,     marker),
+                       metrics_from_pred(truth, either, paste0("Ca19-9 + ", marker))))
+}
+```
+
+## Primary contrast — Figure 5D–E
+
+```{r ca19-primary, fig.width = 7.5, fig.height = 2.5}
+rule_PDAC <- ca19_rule(df_val_cc, cutoffs_PDAC, "malignant_PDAC")
+rule_PDAC$metrics
+write_xlsx(rule_PDAC$metrics, "output/metrics_CA19-9_GLUL_PDAC_cc.xlsx")
+
+# Figure 5D shows CA19-9 alone and the either-positive rule
+fig_df <- subset(rule_PDAC$metrics, predictor != "GLUL")
+p <- plot_metrics(fig_df, "cadetblue"); p
+svg("output/metrics_c19_GLUL_PDAC_cc.svg", width = 5, height = 2.5); print(p); invisible(dev.off())
+
+cms <- list(plot_cm(rule_PDAC$truth, rule_PDAC$ca19,   LAB_PDAC, "cadetblue", "CA19-9"),
+            plot_cm(rule_PDAC$truth, rule_PDAC$either, LAB_PDAC, "cadetblue", "CA19-9 + GLUL"))
+png("output/cm_ca19_GLUL_PDAC_cc.png", width = 5, height = 2.5, res = 300, units = "in")
+print(wrap_plots(cms, ncol = 2)); invisible(dev.off())
+```
+
+## Secondary contrast — Supplementary Figure 5D–E
+
+```{r ca19-secondary, fig.width = 7.5, fig.height = 2.5}
+rule_IPMN <- ca19_rule(df_val_cc, cutoffs_IPMN, "malignant_IPMN")
+rule_IPMN$metrics
+write_xlsx(rule_IPMN$metrics, "output/metrics_CA19-9_GLUL_IPMN_cc.xlsx")
+
+fig_df <- subset(rule_IPMN$metrics, predictor != "GLUL")
+p <- plot_metrics(fig_df, "lightblue"); p
+svg("output/metrics_ca19_GLUL_IPMN_cc.svg", width = 5, height = 2.5); print(p); invisible(dev.off())
+
+cms <- list(plot_cm(rule_IPMN$truth, rule_IPMN$ca19,   LAB_IPMN, "lightblue", "CA19-9"),
+            plot_cm(rule_IPMN$truth, rule_IPMN$either, LAB_IPMN, "lightblue", "CA19-9 + GLUL"))
+png("output/cm_ca19_GLUL_IPMN_cc.png", width = 5, height = 2.5, res = 300, units = "in")
+print(wrap_plots(cms, ncol = 2)); invisible(dev.off())
+```
+
+# Session information
+
+```{r session}
+sessionInfo()
+```

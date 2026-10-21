@@ -1,0 +1,13 @@
+# R session / IDE
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+
+# knitr intermediate files
+analysis_files/
+
+# Office lock files / OS clutter
+~$*
+.DS_Store
+Thumbs.db
