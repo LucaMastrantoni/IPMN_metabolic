@@ -1,22 +1,17 @@
 # IPMN_metabolic
 
-Code and source data for the plasma-protein analyses of:
+Code and source data for **Integrative multi-omics and spatial profiling identify circulating metabolic signatures associated with malignant progression in IPMN**
 
-> **Integrative multi-omics and spatial profiling identify circulating metabolic
-> signatures associated with malignant progression in IPMN**
-
-This repository reproduces the validation-cohort analyses of circulating
-**GLUL, ALDH2, ECHS1 and SCP2** (main **Figure 5**, **Supplementary Figure 5**
-and **Supplementary Table 6**).
+This repository reproduces the validation-cohort analyses of circulating **GLUL, ALDH2, ECHS1 and SCP2**.
 
 ## Analysis design
 
 | Step | Cohort | What is done |
 |---|---|---|
-| Marker selection | Discovery | Done upstream of this repository (plasma differential abundance → spatial transcriptomics → tissue validation; see manuscript). Not re-run here. |
-| Cut-off derivation | Discovery (n = 56) | One cut-off per protein and contrast, maximising Youden's index (rule: marker ≥ cut-off → positive). If a protein separates the classes completely, the midpoint of the separation gap is used. |
-| Performance | **Validation only** (n = 67) | AUROC (95% CI, 2,000 stratified bootstrap replicates); sensitivity, specificity, PPV, NPV, accuracy (Clopper–Pearson 95% CI) and balanced accuracy (bootstrap 95% CI) at the **locked** discovery cut-offs. |
-| CA19-9 | Validation, complete cases (n = 60 / 50) | CA19-9 is available only as a binary clinical call, so it is compared with GLUL as binary calls (no ROC-vs-ROC comparison), plus an exploratory "either-positive" rule (GLUL or CA19-9 positive). |
+| Marker selection | Discovery | Done upstream of this repository. |
+| Cut-off derivation | Discovery (n = 56) | One cut-off per protein and contrast, maximising Youden's index. |
+| Performance | **Validation** (n = 67) | AUROC (95% CI), sensitivity, specificity, PPV, NPV, accuracy and balanced accuracy at the locked discovery cut-offs. |
+| CA19-9 | Validation, complete cases (n = 60 / 50) | CA19-9 is available only as a binary clinical call, so it is compared with GLUL as binary calls. |
 
 No performance estimate is derived from the discovery cohort, because the four proteins were selected on that cohort.
 
@@ -29,8 +24,8 @@ No performance estimate is derived from the discovery cohort, because the four p
 
 ```
 IPMN_metabolic/
-├── analysis.Rmd        # full analysis (knit from the repository root)
-├── analysis.html       # knitted notebook (tables and plots, no R needed)
+├── analysis.Rmd        # full analysis
+├── analysis.html       # knitted notebook
 ├── Data/
 │   └── Cohorts.xlsx    # source data, sheets "Discovery" and "Validation"
 ├── output/             # all figures and tables produced by analysis.Rmd
