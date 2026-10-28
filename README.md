@@ -1,4 +1,4 @@
-# IPMN_metabolic
+# Integrative multi-omics and spatial profiling identify circulating metabolic signatures associated with malignant progression in IPMN
 
 Code and source data for "**Integrative multi-omics and spatial profiling identify circulating metabolic signatures associated with malignant progression in IPMN**".
 
