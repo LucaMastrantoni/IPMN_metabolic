@@ -8,12 +8,12 @@ This repository reproduces the validation-cohort analyses of circulating **GLUL,
 
 | Step | Cohort | What is done |
 |---|---|---|
-| Marker selection | Discovery | Done upstream of this repository. |
+| Marker selection | Discovery | Done upstream. |
 | Cut-off derivation | Discovery (n = 56) | One cut-off per protein and contrast, maximising Youden's index. |
 | Performance | **Validation** (n = 67) | AUROC (95% CI), sensitivity, specificity, PPV, NPV, accuracy and balanced accuracy at the locked discovery cut-offs. |
-| CA19-9 | Validation, complete cases (n = 60 / 50) | CA19-9 is available only as a binary clinical call, so it is compared with GLUL as binary calls. |
+| CA19-9 | Validation, complete cases (n = 60 / 50) | CA19-9 as a binary call, compared with GLUL as binary calls. |
 
-No performance estimate is derived from the discovery cohort, because the four proteins were selected on that cohort.
+No performance estimate is derived from the discovery cohort.
 
 **Contrasts**
 
@@ -25,11 +25,11 @@ No performance estimate is derived from the discovery cohort, because the four p
 ```
 IPMN_metabolic/
 ├── analysis.Rmd        # full analysis
-├── analysis.html       # knitted notebook
+├── analysis.html       # notebook
 ├── Data/
 │   └── Cohorts.xlsx    # source data, sheets "Discovery" and "Validation"
 ├── output/             # all figures and tables produced by analysis.Rmd
-├── session_info.txt    # R and package versions used for the deposited outputs
+├── session_info.txt    # R and package versions
 ├── LICENSE
 └── README.md
 ```
@@ -41,9 +41,9 @@ Cohorts are non-overlapping.
 
 | Column | Description |
 |---|---|
-| `Pt` | Anonymized patient code |
+| `Pt` | Patient code |
 | `Type` | `Low-Grade IPMN`, `High-Grade IPMN` or `PDAC` |
-| `Ca19` | CA19-9 clinical call at the routine threshold: `pos`, `neg`, or `miss` (not recorded; treated as missing) |
+| `Ca19` | CA19-9 clinical call at the routine threshold: `pos`, `neg`, or `miss` (missing) |
 | `GLUL`, `ALDH2`, `ECHS1`, `SCP2` | Plasma protein levels (SomaScan RFU) |
 
 ## Reproducing the analysis
