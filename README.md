@@ -52,13 +52,3 @@ Requires R (≥ 4.4) with:
 ```r
 install.packages(c("readxl", "dplyr", "ggplot2", "patchwork", "pROC", "cutpointr", "cvms", "writexl", "scales", "rmarkdown"))
 ```
-
-Then, from the repository root:
-
-```r
-rmarkdown::render("analysis.Rmd")
-```
-
-All bootstrap procedures use `set.seed(42)`; outputs are deterministic for a
-given package version. The deposited outputs were generated with the versions
-listed in `session_info.txt`.
