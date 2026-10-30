@@ -10,7 +10,7 @@ This notebook reproduces the plasma-protein analyses of the manuscript
 (main Figure 5, Supplementary Figure 5, Supplementary Table 6).
 
 **Design.** GLUL, ALDH2, ECHS1 and SCP2 were pre-specified upstream of this
-analysis. The discovery cohort is used here **only** to derive one classification 
+analysis. The discovery cohort is used here only to derive one classification 
 cut-off per protein (Youden's index), which is then locked. 
 All performance estimates are computed in the independent validation cohort.
 
