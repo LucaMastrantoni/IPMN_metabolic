@@ -25,7 +25,6 @@ No performance estimate is derived from the discovery cohort.
 ```
 IPMN_metabolic/
 ├── analysis.Rmd        # full analysis
-├── analysis.html       # notebook
 ├── Data/
 │   └── Cohorts.xlsx    # source data, sheets "Discovery" and "Validation"
 ├── output/             # all figures and tables produced by analysis.Rmd
