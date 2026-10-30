@@ -2,8 +2,6 @@
 
 Code and source data for "**Integrative multi-omics and spatial profiling identify circulating metabolic signatures associated with malignant progression in IPMN**". (Agostini et al. - Under Review)
 
-This repository reproduces the validation-cohort analyses of circulating **GLUL, ALDH2, ECHS1 and SCP2**.
-
 ## Analysis design
 
 | Step | Cohort | What is done |
