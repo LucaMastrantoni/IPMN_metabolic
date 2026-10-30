@@ -22,10 +22,11 @@ No performance estimate is derived from the discovery cohort.
 
 ```
 IPMN_metabolic/
-├── analysis.Rmd        # full analysis
+├── analysis.Rmd        # Full analysis
 ├── Data/
-│   └── Cohorts.xlsx    # source data, sheets "Discovery" and "Validation"
-├── output/             # all figures and tables produced by analysis.Rmd
+│   └── Cohorts.xlsx    # Source data, sheets "Discovery" and "Validation"
+│   └── Design.jpg      # Patients flow diagram
+├── output/             # Figures and tables produced by analysis.Rmd
 ├── session_info.txt    # R and package versions
 ├── LICENSE
 └── README.md
