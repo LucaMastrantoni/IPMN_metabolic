@@ -10,24 +10,21 @@ This notebook reproduces the plasma-protein analyses of the manuscript
 (main Figure 5, Supplementary Figure 5, Supplementary Table 6).
 
 **Design.** GLUL, ALDH2, ECHS1 and SCP2 were pre-specified upstream of this
-analysis (differential abundance, spatial transcriptomics and tissue validation;
-see manuscript). Because that selection used the discovery cohort, the
-discovery cohort is used here **only** to derive one classification cut-off per
-protein (Youden's index), which is then locked. **All performance estimates are
-computed in the independent validation cohort.** No multivariable model is
-fitted.
+analysis. The discovery cohort is used here **only** to derive one classification 
+cut-off per protein (Youden's index), which is then locked. 
+All performance estimates are computed in the independent validation cohort.
 
 **Contrasts.**
 
 * Primary: HG-IPMN + PDAC vs LG-IPMN (`malignant_PDAC`)
 * Secondary (exploratory, 9 events in validation): HG-IPMN vs LG-IPMN, PDAC excluded (`malignant_IPMN`)
 
-**CA19-9** is available only as a binary clinical call (positive/negative at
-each centre's routine threshold), so it is never compared against a protein ROC
-curve; it is compared as a binary call against each protein's locked binary
-call, and combined with GLUL in an exploratory "either-positive" rule.
+**CA19-9** is available as a binary call (positive/negative at
+each centre's routine threshold); it is compared as a binary call against 
+each protein's locked binary call, and combined with GLUL in an 
+exploratory "either-positive" rule.
 
-Run from the repository root (knitting this file does that automatically).
+Run from the repository root.
 All outputs are written to `output/`.
 
 ```{r setup, message = FALSE, warning = FALSE}
@@ -62,7 +59,7 @@ load_cohort <- function(path, cohort) {
         Type == "Low-Grade IPMN"  ~ 0L,
         TRUE                      ~ NA_integer_
       ),
-      # CA19-9 binary call; "miss" = not recorded (NA, never treated as negative)
+      # CA19-9 binary call; "miss" = not recorded
       ca19_pos = case_when(
         trimws(Ca19) == "pos" ~ 1L,
         trimws(Ca19) == "neg" ~ 0L,
@@ -162,9 +159,8 @@ write_xlsx(auc_df_IPMN, "output/AUC_IPMN.xlsx")
 # 2. Discovery-derived cut-offs — Supplementary Table 6
 
 One cut-off per protein and contrast, maximising Youden's index in the
-discovery cohort (rule: marker >= cut-off -> positive). Where a protein
-separates the discovery classes completely (GLUL), every value inside the gap
-maximises Youden's index; the midpoint of the gap is used.
+discovery cohort. Where a protein separates the discovery classes completely,
+the midpoint of the gap is used.
 
 ```{r cutoffs}
 find_cutoffs <- function(data, marker, outcome) {
@@ -306,20 +302,6 @@ print(wrap_plots(cm_plots, ncol = 2)); invisible(dev.off())
 wrap_plots(cm_plots, ncol = 4)
 ```
 
-Sensitivity of GLUL within the malignant class, by histology (shows how much
-of the primary endpoint is carried by PDAC):
-
-```{r glul-by-histology}
-glul_cut_PDAC <- cutoffs_PDAC$youden_cut[cutoffs_PDAC$marker == "GLUL"]
-df_val %>%
-  filter(malignant_PDAC == 1) %>%
-  group_by(Type) %>%
-  summarise(n = n(), detected = sum(GLUL >= glul_cut_PDAC),
-            sensitivity = detected / n,
-            lo = binom.test(detected, n)$conf.int[1],
-            hi = binom.test(detected, n)$conf.int[2])
-```
-
 ## Secondary contrast — Supplementary Figure 5B–C
 
 ```{r metrics-secondary, fig.width = 10, fig.height = 2.5}
@@ -346,9 +328,7 @@ wrap_plots(cm_plots, ncol = 4)
 
 Restricted to validation patients with CA19-9 recorded (complete cases).
 GLUL is evaluated at its locked discovery cut-off; the "either-positive" rule
-calls a patient positive if GLUL or CA19-9 is positive. This is a
-complementarity analysis at fixed operating points, not a comparison of
-discrimination.
+calls a patient positive if GLUL or CA19-9 is positive.
 
 ```{r ca19-cc}
 df_val_cc <- subset(df_val, !is.na(ca19_pos))
