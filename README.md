@@ -24,7 +24,8 @@ No performance estimate is derived from the discovery cohort.
 IPMN_metabolic/
 ├── analysis.Rmd        # Full analysis
 ├── Data/
-│   └── Cohorts.xlsx    # Source data, sheets "Discovery" and "Validation"
+│   ├── README.md       # Data dictionary
+│   ├── Cohorts.xlsx    # Source data, sheets "Discovery" and "Validation"
 │   └── Design.jpg      # Patients flow diagram
 ├── output/             # Figures and tables produced by analysis.Rmd
 ├── session_info.txt    # R and package versions
@@ -32,17 +33,7 @@ IPMN_metabolic/
 └── README.md
 ```
 
-## Data dictionary — `Data/Cohorts.xlsx`
-
-One row per patient; sheets `Discovery` (n = 56) and `Validation` (n = 67).
-Cohorts are non-overlapping.
-
-| Column | Description |
-|---|---|
-| `Pt` | Patient code |
-| `Type` | `Low-Grade IPMN`, `High-Grade IPMN` or `PDAC` |
-| `Ca19` | CA19-9 clinical call at the routine threshold: `pos`, `neg`, or `miss` (missing) |
-| `GLUL`, `ALDH2`, `ECHS1`, `SCP2` | Plasma protein levels (SomaScan RFU) |
+The data dictionary is in [`Data/README.md`](Data/README.md).
 
 ## Reproducing the analysis
 
